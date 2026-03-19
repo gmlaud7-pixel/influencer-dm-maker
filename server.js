@@ -25,30 +25,28 @@ app.post('/api/generate', async (req, res) => {
   try {
     send({ step: '🤖 AI가 계정과 제품 분석 중...' });
 
-    const prompt = `당신은 인플루언서 마케팅 전문가입니다. 아래 정보로 인스타그램 협업 제안 DM을 작성하세요.
+    const prompt = `당신은 인플루언서 마케팅 전문가입니다. 아래 정보로 DM 구성요소 4가지를 한국어로만 작성하세요.
 
-[인플루언서]
-인스타그램 아이디: @${username}
-당신이 알고 있는 이 계정의 콘텐츠 카테고리, 스타일, 최근 활동을 최대한 활용하세요.
-모르는 경우 아이디를 분석해서 추측하세요.
+인플루언서 아이디: @${username}
+브랜드: ${brandName} / 제품: ${productName}
+제안: ${dmType || '공동구매'}
 
-[제품/브랜드]
-브랜드: ${brandName}
-제품명: ${productName}
-당신이 알고 있는 이 제품/브랜드 정보를 최대한 활용하세요.
-제안 유형: ${dmType || '공동구매'}
-${senderName ? `담당자: ${senderName}` : ''}
+이 인플루언서의 콘텐츠 카테고리와 스타일을 아이디로 유추하고, 제품 특징도 알고 있는 정보로 분석하세요.
 
-아래 형식 그대로 출력:
-연락이유: (이 인플루언서의 콘텐츠와 이 제품이 왜 잘 맞는지 구체적인 이유. 한 문장. 인플루언서 이름 없이. 40자 이내.)
+반드시 아래 형식 그대로 출력:
+
+후킹: (첫 문장. "안녕하세요" 금지. 이 제품과 이 인플루언서 카테고리를 연결하는 강렬한 한 문장. 30자 이내.)
+
+연락이유: (이 인플루언서의 콘텐츠를 실제로 봐온 것처럼. "oo님의 피드를 보고" 느낌으로. 이 제품이 왜 이 채널과 맞는지 구체적으로. 2문장 이내. 이름/아이디 포함 금지.)
+
 포인트목록:
-• (제품 핵심 특징 1)
-• (제품 핵심 특징 2)
-• (제품 핵심 특징 3)
+• (제품 핵심 특징)
+• (제품 핵심 특징)
+• (제품 핵심 특징)
 • (이 인플루언서 팔로워에게 왜 맞는지)
 • (공동구매/협업 기회)
 
-규칙: 한국어만. 각 항목 20자 이내. 연락이유: 포인트목록: 반드시 포함. 형식만 출력.`;
+규칙: 한국어만. 영어 절대 금지. 후킹: 연락이유: 포인트목록: 키워드 반드시 포함. 형식만 출력.`;
 
     const aiResp = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -59,11 +57,11 @@ ${senderName ? `담당자: ${senderName}` : ''}
       body: JSON.stringify({
         model: 'gpt-4o-mini',
         messages: [
-          { role: 'system', content: '당신은 한국어 전용 인플루언서 마케팅 담당자입니다. 반드시 한국어(한글)만 씁니다. 영어·한자 절대 금지.' },
+          { role: 'system', content: '당신은 한국어 전용 인플루언서 마케팅 담당자입니다. 반드시 한국어(한글)만 씁니다. 영어 절대 금지.' },
           { role: 'user', content: prompt }
         ],
-        max_tokens: 400,
-        temperature: 0.7,
+        max_tokens: 500,
+        temperature: 0.75,
         stream: true
       })
     });
@@ -90,28 +88,26 @@ ${senderName ? `담당자: ${senderName}` : ''}
           const json = JSON.parse(d);
           const token = json.choices?.[0]?.delta?.content || '';
           aiText += token;
-          send({ token });
         } catch {}
       }
     }
 
     // 파싱
-    const reasonM  = aiText.match(/연락이유:\s*([\s\S]*?)(?=포인트목록:|$)/);
-    const bulletsM = aiText.match(/포인트목록:\s*([\s\S]*)/);
-    const reason  = reasonM  ? reasonM[1].trim() : '';
-    const bullets = bulletsM ? bulletsM[1].trim() : aiText;
+    const hooking  = (aiText.match(/후킹:\s*([\s\S]*?)(?=연락이유:|$)/) || [])[1]?.trim() || '';
+    const reason   = (aiText.match(/연락이유:\s*([\s\S]*?)(?=포인트목록:|$)/) || [])[1]?.trim() || '';
+    const bullets  = (aiText.match(/포인트목록:\s*([\s\S]*)/) || [])[1]?.trim() || '';
 
-    const nameLabel = `@${username}님`;
+    const nameLabel = `${username}님`;
     const sender = senderName ? `${brandName} ${senderName}` : brandName;
-    const reasonLine = reason
-      ? `${reason} ${nameLabel}께 소개하고 싶어`
-      : `${nameLabel}의 피드를 보고 잘 맞으실 것 같아`;
 
-    const dm = `안녕하세요. ${nameLabel}
+    const dm = `${hooking}
+
+안녕하세요. ${nameLabel}
 
 ${sender}입니다.
 
-${reasonLine}
+${nameLabel}의 피드를 보고
+${reason}
 조심스럽게 연락드리게 되었습니다.
 
 이번에 소개드리고 싶은 상품은
