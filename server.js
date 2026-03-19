@@ -87,7 +87,10 @@ app.post('/api/generate', async (req, res) => {
         try {
           const json = JSON.parse(d);
           const token = json.choices?.[0]?.delta?.content || '';
-          aiText += token;
+          if (token) {
+            aiText += token;
+            send({ chunk: token }); // 실시간 스트리밍
+          }
         } catch {}
       }
     }
