@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>인플루언서 DM 메이커</title>
+  <link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --pink: #e8448a;
+      --pink-light: #fef0f6;
+      --pink-border: #f9c0d9;
+      --bg: #f8f7fa;
+      --surface: #fff;
+      --border: #e8e3ed;
+      --text: #1a1020;
+      --muted: #7a6e80;
+      --radius: 14px;
+    }
+    body { font-family: 'Pretendard', 'Apple SD Gothic Neo', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+
+    header { background: white; border-bottom: 1px solid var(--border); padding: 0 20px; height: 54px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 10; }
+    .logo { display: flex; align-items: center; gap: 8px; font-weight: 800; font-size: 15px; color: var(--text); text-decoration: none; }
+    .logo-mark { width: 28px; height: 28px; border-radius: 8px; background: linear-gradient(135deg, #e8448a, #9b4fd4); display: flex; align-items: center; justify-content: center; color: white; font-size: 14px; }
+    .logo span { color: var(--pink); }
+    nav { display: flex; gap: 4px; }
+    .nav-btn { padding: 6px 13px; border-radius: 8px; border: none; background: none; font-size: 13px; font-weight: 600; cursor: pointer; color: var(--muted); font-family: inherit; transition: all 0.15s; }
+    .nav-btn.active { background: var(--pink); color: white; }
+    .nav-btn:hover:not(.active) { background: var(--bg); color: var(--text); }
+
+    main { max-width: 960px; margin: 0 auto; padding: 24px 16px; }
+
+    .hero { text-align: center; margin-bottom: 28px; }
+    .hero-badge { display: inline-flex; align-items: center; gap: 6px; background: var(--pink-light); color: var(--pink); border-radius: 999px; padding: 6px 16px; font-size: 12px; font-weight: 700; margin-bottom: 10px; }
+    .hero h1 { font-size: 22px; font-weight: 800; margin-bottom: 6px; }
+    .hero p { font-size: 13px; color: var(--muted); }
+
+    .layout { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+    @media (max-width: 700px) { .layout { grid-template-columns: 1fr; } }
+
+    .panel { background: white; border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; margin-bottom: 14px; }
+    .panel-title { font-size: 13px; font-weight: 700; margin-bottom: 16px; display: flex; align-items: center; gap: 6px; }
+
+    .field { margin-bottom: 14px; }
+    .field:last-child { margin-bottom: 0; }
+    label { display: block; font-size: 11px; font-weight: 600; color: var(--muted); margin-bottom: 5px; }
+    label .req { color: #e53e3e; }
+    input, select {
+      width: 100%; padding: 11px 13px;
+      border: 1px solid var(--border); border-radius: 10px;
+      font-size: 14px; font-family: inherit;
+      background: white; color: var(--text); outline: none;
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+    input:focus, select:focus { border-color: var(--pink); box-shadow: 0 0 0 3px rgba(232,68,138,0.1); }
+    .prefix-wrap { position: relative; }
+    .prefix { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--muted); font-size: 14px; pointer-events: none; }
+    .prefix-wrap input { padding-left: 22px; }
+    .err { font-size: 11px; color: #e53e3e; margin-top: 4px; }
+    select { appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%237a6e80' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 12px center; padding-right: 32px; }
+    .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+    .ai-notice { background: linear-gradient(135deg, #e8448a0d, #9b4fd40d); border: 1px solid var(--pink-border); border-radius: 10px; padding: 12px 14px; margin-bottom: 14px; font-size: 12px; color: var(--muted); line-height: 1.6; }
+    .ai-notice strong { color: var(--pink); }
+
+    .btn-gen { width: 100%; padding: 14px; background: linear-gradient(135deg, #e8448a, #9b4fd4); color: white; border: none; border-radius: 11px; font-size: 15px; font-weight: 700; font-family: inherit; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; transition: opacity 0.15s, transform 0.1s; }
+    .btn-gen:hover { opacity: 0.9; transform: translateY(-1px); }
+    .btn-gen:disabled { opacity: 0.55; cursor: not-allowed; transform: none; }
+
+    /* 결과 */
+    .result-empty { border: 1.5px dashed var(--border); border-radius: var(--radius); padding: 52px 20px; text-align: center; }
+    .result-empty-icon { width: 52px; height: 52px; background: var(--pink-light); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 12px; font-size: 24px; }
+    .result-empty h3 { font-size: 14px; font-weight: 700; margin-bottom: 6px; }
+    .result-empty p { font-size: 12px; color: var(--muted); line-height: 1.6; }
+
+    /* 진행 상태 */
+    .status-box { background: white; border: 1px solid var(--pink-border); border-radius: var(--radius); padding: 20px; display: none; }
+    .status-step { font-size: 13px; font-weight: 600; color: var(--pink); margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .spinner { width: 16px; height: 16px; border: 2px solid rgba(232,68,138,0.25); border-top-color: var(--pink); border-radius: 50%; animation: spin 0.7s linear infinite; flex-shrink: 0; }
+    .status-progress { height: 3px; background: var(--pink-light); border-radius: 999px; overflow: hidden; }
+    .status-progress-bar { height: 100%; background: linear-gradient(90deg, #e8448a, #9b4fd4); border-radius: 999px; transition: width 0.5s ease; }
+
+    .result-box { background: white; border: 1.5px solid var(--pink-border); border-radius: var(--radius); display: none; }
+    .result-head { padding: 14px 16px 0; display: flex; align-items: center; justify-content: space-between; }
+    .result-label { font-size: 12px; font-weight: 700; color: var(--pink); }
+    .badge { font-size: 11px; font-weight: 600; padding: 3px 9px; border-radius: 999px; border: 1px solid var(--border); color: var(--muted); background: var(--bg); }
+    .dm-preview { margin: 12px 16px; background: #faf9fb; border-radius: 12px; padding: 16px 18px; font-size: 14px; line-height: 2; color: var(--text); white-space: pre-wrap; max-height: 500px; overflow-y: auto; word-break: keep-all; }
+    .result-actions { padding: 12px 16px 14px; display: flex; gap: 8px; }
+    .btn-copy { flex: 1; padding: 11px; background: linear-gradient(135deg, #e8448a, #9b4fd4); color: white; border: none; border-radius: 9px; font-size: 13px; font-weight: 700; font-family: inherit; cursor: pointer; }
+    .btn-copy:hover { opacity: 0.9; }
+    .btn-regen { padding: 11px 14px; border: 1.5px solid var(--border); background: white; border-radius: 9px; cursor: pointer; font-size: 15px; }
+    .btn-regen:hover { border-color: var(--pink); }
+    .btn-reset { width: 100%; background: none; border: none; font-size: 11px; color: var(--muted); cursor: pointer; padding: 4px 16px 12px; font-family: inherit; }
+
+    /* History */
+    .hist-empty { text-align: center; padding: 72px 20px; color: var(--muted); }
+    .hist-item { background: white; border: 1px solid var(--border); border-radius: var(--radius); padding: 14px; margin-bottom: 10px; }
+    .hist-head { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 8px; }
+    .hist-badges { display: flex; flex-wrap: wrap; gap: 4px; }
+    .hist-actions { display: flex; gap: 4px; flex-shrink: 0; }
+    .icon-btn { width: 28px; height: 28px; border-radius: 6px; border: 1px solid var(--border); background: white; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 12px; }
+    .icon-btn:hover { border-color: var(--pink); }
+    .hist-preview { background: var(--bg); border-radius: 9px; padding: 10px 12px; font-size: 12px; color: var(--muted); line-height: 1.7; white-space: pre-wrap; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; }
+    .hist-date { font-size: 10px; color: var(--muted); margin-bottom: 5px; }
+
+    footer { text-align: center; padding: 18px; font-size: 11px; color: var(--muted); border-top: 1px solid var(--border); margin-top: 12px; }
+    footer a { color: var(--muted); text-decoration: none; }
+
+    #toast { position: fixed; bottom: 22px; left: 50%; transform: translateX(-50%) translateY(80px); background: #1a1020; color: white; padding: 9px 20px; border-radius: 999px; font-size: 13px; font-weight: 600; transition: transform 0.25s cubic-bezier(0.16,1,0.3,1); pointer-events: none; z-index: 100; white-space: nowrap; }
+    #toast.show { transform: translateX(-50%) translateY(0); }
+  </style>
+</head>
+<body>
+
+<header>
+  <a class="logo" href="#"><div class="logo-mark">✉️</div>DM <span>메이커</span></a>
+  <nav>
+    <button class="nav-btn active" onclick="showPage('home')" id="nav-home">✍️ DM 생성</button>
+    <button class="nav-btn" onclick="showPage('history')" id="nav-history">🕐 히스토리</button>
+  </nav>
+</header>
+
+<div id="page-home">
+  <main>
+    <div class="hero">
+      <div class="hero-badge">🤖 AI 자동 분석 · 인스타그램 맞춤 DM</div>
+      <h1>아이디와 제품만 입력하면 AI가 알아서 씁니다</h1>
+      <p>인플루언서 계정을 직접 분석하고 제품 특징을 파악해서<br>진짜 맞춤 DM을 자동으로 생성해드려요</p>
+    </div>
+
+    <div class="layout">
+      <!-- 입력 -->
+      <div>
+        <div class="ai-notice">
+          <strong>✨ AI가 자동으로 분석해요</strong><br>
+          인플루언서 아이디와 제품명만 입력하면 → AI가 계정을 분석하고 제품 특징을 파악해서 → DM을 완성합니다
+        </div>
+
+        <div class="panel">
+          <div class="panel-title">👤 인플루언서</div>
+          <div class="field">
+            <label>인스타그램 아이디 <span class="req">*</span></label>
+            <div class="prefix-wrap">
+              <span class="prefix">@</span>
+              <input id="username" placeholder="influencer_id" />
+            </div>
+            <div class="err" id="e-user"></div>
+          </div>
+          <div class="field">
+            <label>제안 유형</label>
+            <select id="dm-type">
+              <option>공동구매</option>
+              <option>협찬</option>
+              <option>광고</option>
+              <option>콜라보레이션</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-title">🛍️ 브랜드 / 제품</div>
+          <div class="row2">
+            <div class="field">
+              <label>브랜드명 <span class="req">*</span></label>
+              <input id="brand" placeholder="홍익상회" />
+              <div class="err" id="e-brand"></div>
+            </div>
+            <div class="field">
+              <label>제품명 <span class="req">*</span></label>
+              <input id="product" placeholder="인생먹태" />
+              <div class="err" id="e-prod"></div>
+            </div>
+          </div>
+          <div class="field">
+            <label>담당자 이름 (선택)</label>
+            <input id="sender" placeholder="루엔, 김지수..." />
+          </div>
+        </div>
+
+        <button class="btn-gen" id="btn-gen" onclick="generate()">
+          ✨ AI로 DM 자동 생성
+        </button>
+      </div>
+
+      <!-- 결과 -->
+      <div>
+        <div class="result-empty" id="result-empty">
+          <div class="result-empty-icon">🤖</div>
+          <h3>AI가 분석해서 DM을 완성합니다</h3>
+          <p style="margin-top:8px">아이디 + 브랜드 + 제품명만 입력하면<br>AI가 계정을 분석하고 제품 특징을 파악해서<br>맞춤 DM을 자동으로 작성해드려요</p>
+        </div>
+
+        <div class="status-box" id="status-box">
+          <div class="status-step" id="status-step">
+            <div class="spinner"></div>
+            <span id="status-text">분석 중...</span>
+          </div>
+          <div class="status-progress">
+            <div class="status-progress-bar" id="progress-bar" style="width:10%"></div>
+          </div>
+        </div>
+
+        <div class="result-box" id="result-box">
+          <div class="result-head">
+            <span class="result-label">✉️ 완성 DM</span>
+            <span class="badge" id="b-type"></span>
+          </div>
+          <div class="dm-preview" id="dm-preview"></div>
+          <div class="result-actions">
+            <button class="btn-copy" id="btn-copy" onclick="copyDM()">📋 DM 복사하기</button>
+            <button class="btn-regen" onclick="generate()" title="재생성">🔄</button>
+          </div>
+          <button class="btn-reset" onclick="resetAll()">새로 작성하기</button>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<div id="page-history" style="display:none">
+  <main>
+    <div style="margin-bottom:18px">
+      <h2 style="font-size:18px;font-weight:800;margin-bottom:4px">생성 히스토리</h2>
+      <p style="font-size:12px;color:var(--muted)">이전에 생성한 DM을 다시 확인하고 복사할 수 있어요</p>
+    </div>
+    <div id="hist-list"></div>
+  </main>
+</div>
+
+<footer>
+  인플루언서 DM 메이커 &nbsp;·&nbsp;
+  <a href="https://www.perplexity.ai/computer" target="_blank">Created with Perplexity Computer</a>
+</footer>
+<div id="toast"></div>
+
+<script>
+let history = [];
+let hid = 1;
+let currentDM = '';
+
+function showPage(p) {
+  document.getElementById('page-home').style.display = p === 'home' ? '' : 'none';
+  document.getElementById('page-history').style.display = p === 'history' ? '' : 'none';
+  document.getElementById('nav-home').className = 'nav-btn' + (p === 'home' ? ' active' : '');
+  document.getElementById('nav-history').className = 'nav-btn' + (p === 'history' ? ' active' : '');
+  if (p === 'history') renderHistory();
+}
+
+function setProgress(pct, text) {
+  document.getElementById('progress-bar').style.width = pct + '%';
+  document.getElementById('status-text').textContent = text;
+}
+
+async function generate() {
+  const username = document.getElementById('username').value.trim();
+  const brand    = document.getElementById('brand').value.trim();
+  const product  = document.getElementById('product').value.trim();
+
+  let ok = true;
+  const err = (id, msg) => { document.getElementById(id).textContent = msg; if (msg) ok = false; };
+  err('e-user',  username ? '' : '아이디를 입력해주세요');
+  err('e-brand', brand    ? '' : '브랜드명을 입력해주세요');
+  err('e-prod',  product  ? '' : '제품명을 입력해주세요');
+  if (!ok) return;
+
+  const dmType   = document.getElementById('dm-type').value;
+  const sender   = document.getElementById('sender').value.trim();
+
+  const btn = document.getElementById('btn-gen');
+  btn.disabled = true;
+  btn.innerHTML = '<div class="spinner" style="border-top-color:white;border-color:rgba(255,255,255,0.3)"></div> AI 분석 중...';
+
+  document.getElementById('result-empty').style.display = 'none';
+  document.getElementById('result-box').style.display = 'none';
+  document.getElementById('status-box').style.display = '';
+  document.getElementById('b-type').textContent = dmType;
+  setProgress(10, '🔍 인스타그램 계정 분석 중...');
+
+  try {
+    const resp = await fetch('/api/generate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, brandName: brand, productName: product, dmType, senderName: sender })
+    });
+
+    const reader = resp.body.getReader();
+    const dec = new TextDecoder();
+    let buf = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buf += dec.decode(value, { stream: true });
+      const lines = buf.split('\n\n');
+      buf = lines.pop();
+
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue;
+        try {
+          const data = JSON.parse(line.slice(6));
+          if (data.step) {
+            const pct = data.step.includes('인스타') ? 30 : data.step.includes('제품') ? 60 : 85;
+            setProgress(pct, data.step);
+          }
+          if (data.done && data.dm) {
+            setProgress(100, '✅ 완성!');
+            currentDM = data.dm;
+            document.getElementById('dm-preview').textContent = data.dm;
+            setTimeout(() => {
+              document.getElementById('status-box').style.display = 'none';
+              document.getElementById('result-box').style.display = '';
+            }, 400);
+            history.push({ id: hid++, username, brand, product, dmType, dm: data.dm, date: new Date().toLocaleString('ko-KR') });
+            toast('DM 생성 완료!');
+          }
+          if (data.error) {
+            setProgress(0, '❌ ' + data.error);
+          }
+        } catch {}
+      }
+    }
+  } catch(e) {
+    setProgress(0, '❌ 오류: ' + e.message);
+  }
+
+  btn.disabled = false;
+  btn.innerHTML = '✨ AI로 DM 자동 생성';
+}
+
+function copyDM() {
+  if (!currentDM) return;
+  navigator.clipboard.writeText(currentDM).then(() => {
+    document.getElementById('btn-copy').textContent = '✅ 복사됐어요!';
+    setTimeout(() => { document.getElementById('btn-copy').textContent = '📋 DM 복사하기'; }, 2000);
+    toast('클립보드에 복사됐어요!');
+  });
+}
+
+function resetAll() {
+  ['username','brand','product','sender'].forEach(id => { document.getElementById(id).value = ''; });
+  ['e-user','e-brand','e-prod'].forEach(id => { document.getElementById(id).textContent = ''; });
+  document.getElementById('dm-type').value = '공동구매';
+  currentDM = '';
+  document.getElementById('result-empty').style.display = '';
+  document.getElementById('result-box').style.display = 'none';
+  document.getElementById('status-box').style.display = 'none';
+}
+
+function renderHistory() {
+  const el = document.getElementById('hist-list');
+  if (!history.length) {
+    el.innerHTML = `<div class="hist-empty"><div style="font-size:36px;margin-bottom:10px">💬</div><p style="font-weight:700">아직 생성한 DM이 없어요</p></div>`;
+    return;
+  }
+  el.innerHTML = [...history].reverse().map(h => `
+    <div class="hist-item">
+      <div class="hist-head">
+        <div class="hist-badges">
+          <span class="badge">@${h.username}</span>
+          <span class="badge">${h.brand}</span>
+          <span class="badge">${h.product}</span>
+          <span class="badge" style="background:var(--pink-light);color:var(--pink);border-color:transparent">${h.dmType}</span>
+        </div>
+        <div class="hist-actions">
+          <button class="icon-btn" onclick="copyHist(${h.id})">📋</button>
+          <button class="icon-btn" onclick="delHist(${h.id})">🗑️</button>
+        </div>
+      </div>
+      <div class="hist-date">${h.date}</div>
+      <div class="hist-preview">${h.dm}</div>
+    </div>
+  `).join('');
+}
+
+function copyHist(id) {
+  const h = history.find(x => x.id === id);
+  if (h) navigator.clipboard.writeText(h.dm).then(() => toast('복사 완료!'));
+}
+function delHist(id) {
+  history = history.filter(x => x.id !== id);
+  renderHistory();
+}
+
+function toast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2000);
+}
+</script>
+</body>
+</html>
