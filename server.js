@@ -9,23 +9,6 @@ app.use(express.static('public'));
 
 const OPENAI_KEY = process.env.OPENAI_KEY || '';
 
-// ── 인스타그램 계정 + 제품 웹 검색 ──────────────────────────
-async function searchWeb(query) {
-  const url = `https://api.duckduckgo.com/?q=${encodeURIComponent(query)}&format=json&no_html=1&skip_disambig=1`;
-  const resp = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0' } });
-  const data = await resp.json();
-
-  let results = '';
-  if (data.AbstractText) results += data.AbstractText + '\n';
-  if (data.RelatedTopics) {
-    data.RelatedTopics.slice(0, 5).forEach(t => {
-      if (t.Text) results += t.Text + '\n';
-    });
-  }
-  return results.trim();
-}
-
-// ── 메인 API ─────────────────────────────────────────────────
 app.post('/api/generate', async (req, res) => {
   const { username, brandName, productName, dmType, senderName } = req.body;
 
@@ -33,46 +16,39 @@ app.post('/api/generate', async (req, res) => {
     return res.status(400).json({ error: '필수 정보가 없어요' });
   }
 
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+
+  const send = (data) => res.write(`data: ${JSON.stringify(data)}\n\n`);
+
   try {
-    res.setHeader('Content-Type', 'text/event-stream');
-    res.setHeader('Cache-Control', 'no-cache');
-    res.setHeader('Connection', 'keep-alive');
+    send({ step: '🤖 AI가 계정과 제품 분석 중...' });
 
-    const sendEvent = (data) => res.write(`data: ${JSON.stringify(data)}\n\n`);
-
-    // ── 1단계: 인스타그램 계정 검색 ──
-    sendEvent({ step: '🔍 인스타그램 계정 분석 중...' });
-    const instaInfo = await searchWeb(`instagram ${username} 인플루언서 최근 콘텐츠 게시물`);
-
-    // ── 2단계: 제품 정보 검색 ──
-    sendEvent({ step: '📦 제품 정보 검색 중...' });
-    const productInfo = await searchWeb(`${brandName} ${productName} 특징 성분 효능 후기`);
-
-    // ── 3단계: AI DM 생성 ──
-    sendEvent({ step: '✍️ DM 작성 중...' });
-
-    const prompt = `아래 정보를 바탕으로 인스타그램 협업 제안 DM을 작성해줘. 반드시 한국어만.
+    const prompt = `당신은 인플루언서 마케팅 전문가입니다. 아래 정보로 인스타그램 협업 제안 DM을 작성하세요.
 
 [인플루언서]
 인스타그램 아이디: @${username}
-검색으로 파악한 정보: ${instaInfo || '정보 없음'}
+당신이 알고 있는 이 계정의 콘텐츠 카테고리, 스타일, 최근 활동을 최대한 활용하세요.
+모르는 경우 아이디를 분석해서 추측하세요.
 
 [제품/브랜드]
 브랜드: ${brandName}
 제품명: ${productName}
-검색으로 파악한 제품 정보: ${productInfo || '정보 없음'}
+당신이 알고 있는 이 제품/브랜드 정보를 최대한 활용하세요.
 제안 유형: ${dmType || '공동구매'}
+${senderName ? `담당자: ${senderName}` : ''}
 
-아래 형식으로 출력:
-연락이유: (인플루언서 콘텐츠와 제품 연결, 왜 맞는지 한 문장, 40자 이내, 이름 없이)
+아래 형식 그대로 출력:
+연락이유: (이 인플루언서의 콘텐츠와 이 제품이 왜 잘 맞는지 구체적인 이유. 한 문장. 인플루언서 이름 없이. 40자 이내.)
 포인트목록:
-• (제품 핵심 특징 20자 이내)
-• (제품 핵심 특징 20자 이내)
-• (제품 핵심 특징 20자 이내)
+• (제품 핵심 특징 1)
+• (제품 핵심 특징 2)
+• (제품 핵심 특징 3)
 • (이 인플루언서 팔로워에게 왜 맞는지)
 • (공동구매/협업 기회)
 
-규칙: 한국어만. 이름 포함 금지. 형식만 출력.`;
+규칙: 한국어만. 각 항목 20자 이내. 연락이유: 포인트목록: 반드시 포함. 형식만 출력.`;
 
     const aiResp = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -83,7 +59,7 @@ app.post('/api/generate', async (req, res) => {
       body: JSON.stringify({
         model: 'gpt-4o-mini',
         messages: [
-          { role: 'system', content: '당신은 한국어 전용 인플루언서 마케팅 담당자입니다. 반드시 한국어(한글)만 씁니다.' },
+          { role: 'system', content: '당신은 한국어 전용 인플루언서 마케팅 담당자입니다. 반드시 한국어(한글)만 씁니다. 영어·한자 절대 금지.' },
           { role: 'user', content: prompt }
         ],
         max_tokens: 400,
@@ -92,41 +68,46 @@ app.post('/api/generate', async (req, res) => {
       })
     });
 
+    if (!aiResp.ok) {
+      const err = await aiResp.json();
+      send({ error: err.error?.message || 'OpenAI 오류' });
+      return res.end();
+    }
+
     let aiText = '';
-    const reader = aiResp.body;
     let buffer = '';
 
-    for await (const chunk of reader) {
+    for await (const chunk of aiResp.body) {
       buffer += chunk.toString();
       const lines = buffer.split('\n');
       buffer = lines.pop();
 
       for (const line of lines) {
         if (!line.startsWith('data: ')) continue;
-        const data = line.slice(6).trim();
-        if (data === '[DONE]') continue;
+        const d = line.slice(6).trim();
+        if (d === '[DONE]') continue;
         try {
-          const json = JSON.parse(data);
+          const json = JSON.parse(d);
           const token = json.choices?.[0]?.delta?.content || '';
           aiText += token;
-          sendEvent({ token });
+          send({ token });
         } catch {}
       }
     }
 
-    // ── 파싱 후 DM 조립 ──
+    // 파싱
     const reasonM  = aiText.match(/연락이유:\s*([\s\S]*?)(?=포인트목록:|$)/);
     const bulletsM = aiText.match(/포인트목록:\s*([\s\S]*)/);
-    const reason  = reasonM  ? reasonM[1].trim()  : '';
+    const reason  = reasonM  ? reasonM[1].trim() : '';
     const bullets = bulletsM ? bulletsM[1].trim() : aiText;
 
-    const nameLabel = username;
+    const nameLabel = `@${username}님`;
     const sender = senderName ? `${brandName} ${senderName}` : brandName;
     const reasonLine = reason
-      ? `${reason} @${username}님께 소개하고 싶어`
-      : `@${username}님의 피드를 보고 잘 맞으실 것 같아`;
+      ? `${reason} ${nameLabel}께 소개하고 싶어`
+      : `${nameLabel}의 피드를 보고 잘 맞으실 것 같아`;
 
-    const dm = `안녕하세요. @${username}님
+    const dm = `안녕하세요. ${nameLabel}
 
 ${sender}입니다.
 
@@ -149,11 +130,11 @@ ${bullets}
 오늘도 좋은 하루 보내세요!
 감사합니다.`;
 
-    sendEvent({ done: true, dm });
+    send({ done: true, dm });
     res.end();
 
   } catch (e) {
-    res.write(`data: ${JSON.stringify({ error: e.message })}\n\n`);
+    send({ error: e.message });
     res.end();
   }
 });
